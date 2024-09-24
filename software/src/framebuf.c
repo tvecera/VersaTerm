@@ -20,7 +20,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "hardware/uart.h"
 
 #include "pins.h"
 #include "font.h"
@@ -30,6 +29,7 @@
 #include "framebuf.h"
 #include "framebuf_dvi.h"
 #include "framebuf_vga.h"
+#include "serial.h"
 
 // defined in main.c
 void wait(uint32_t milliseconds);
@@ -567,15 +567,25 @@ void framebuf_apply_settings()
 
 void framebuf_init(bool forceDVI)
 {
+#if USE_HDMI && !USE_VGA
+	forceDVI = true;
+#elif USE_VGA && !USE_HDMI
+	forceDVI = false;
+#endif
+#if USE_HDMI_DETECT
   gpio_init(PIN_HDMI_DETECT);
   gpio_set_dir(PIN_HDMI_DETECT, false); // input
-
+#endif
   if( forceDVI )
     is_dvi = true;
   else if( config_get_screen_display()==0 )
     {
       wait(100); // wait a short time for voltage to stabilize before reading
+#if USE_HDMI_DETECT
       is_dvi = gpio_get(PIN_HDMI_DETECT);
+#else
+			is_dvi = true;
+#endif
     }
   else
     is_dvi = config_get_screen_display()==1;
@@ -592,5 +602,5 @@ void framebuf_init(bool forceDVI)
   framebuf_apply_settings();
 
   // must re-initialize serial baud rate after changing system clock
-  uart_set_baudrate(PIN_UART_ID, config_get_serial_baud());
+	serial_set_baudrate(config_get_serial_baud());
 }

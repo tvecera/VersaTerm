@@ -22,6 +22,7 @@
 
 #include <stdbool.h>
 
+float serial_cdc_get_baudrate();
 bool serial_cdc_is_connected();
 void serial_cdc_set_break(bool set);
 void serial_cdc_send_char(char c);

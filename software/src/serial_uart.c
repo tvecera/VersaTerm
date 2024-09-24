@@ -17,6 +17,10 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 // -----------------------------------------------------------------------------
 
+#include "pins.h"
+
+#if USE_UART
+
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
 #include "hardware/uart.h"
@@ -25,9 +29,8 @@
 #include "serial_uart.h"
 #include "serial_cdc.h"
 #include "config.h"
-#include "pins.h"
 #include "terminal.h"
-#include "config.h"
+#include "led.h"
 
 #define XON  17
 #define XOFF 19
@@ -46,11 +49,42 @@ static void blink_led(uint16_t ms)
 {
   if( ms>0 )
     {
-      gpio_put(PIN_LED, true);
+			led_on(LED1);
       offtime = make_timeout_time_ms(ms);
     }
 }
 
+bool serial_uart_is_writable() {
+	return uart_is_writable(PIN_UART_ID);
+}
+
+bool serial_uart_is_readable() {
+	return uart_is_readable(PIN_UART_ID);
+}
+
+void serial_uart_write_blocking(const unsigned char *src, unsigned int len) {
+	uart_write_blocking(PIN_UART_ID, src, len);
+}
+
+char serial_uart_getc() {
+	return uart_getc(PIN_UART_ID);
+}
+void serial_uart_putc(unsigned char c) {
+	uart_get_hw(PIN_UART_ID)->dr = c;
+}
+
+float serial_uart_get_baudrate() {
+	// Get PL011's baud divisor registers
+	uint32_t baud_ibrd = uart_get_hw(PIN_UART_ID)->ibrd;
+	uint32_t baud_fbrd = uart_get_hw(PIN_UART_ID)->fbrd;
+
+	// See datasheet
+	return (4.0f * ((float) clock_get_hz(clk_peri))) / (float) (64 * baud_ibrd + baud_fbrd);
+}
+
+void serial_uart_set_baudrate(unsigned long baudrate) {
+	uart_set_baudrate(PIN_UART_ID, baudrate);
+}
 
 void serial_uart_set_break(bool set)
 {
@@ -66,7 +100,7 @@ int serial_uart_can_send()
 
 void serial_uart_send_char(char c)
 {
-  if( uart_is_writable(PIN_UART_ID) && queue_is_empty(&uart_tx_queue) )
+  if( serial_uart_is_writable() && queue_is_empty(&uart_tx_queue) )
     {
       blink_led(config_get_serial_blink());
       uart_get_hw(PIN_UART_ID)->dr = c;
@@ -96,7 +130,7 @@ bool serial_uart_receive_char(uint8_t *b)
     {
       // if xon/xoff is disabled then we use the built-in 
       // UART RX buffer for better performance
-      if( uart_is_readable(PIN_UART_ID) ) 
+      if( serial_uart_is_readable() )
         {
           blink_led(config_get_serial_blink());
           *b = uart_getc(PIN_UART_ID);
@@ -110,7 +144,7 @@ bool serial_uart_receive_char(uint8_t *b)
 
 bool serial_uart_readable()
 {
-  return config_get_serial_xonxoff() ? !queue_is_empty(&uart_rx_queue) : uart_is_readable(PIN_UART_ID);
+  return config_get_serial_xonxoff() ? !queue_is_empty(&uart_rx_queue) : serial_uart_is_readable();
 }
 
 
@@ -136,6 +170,7 @@ void serial_uart_apply_settings()
                   UART_UARTLCR_H_SPS_BITS);
 
   // hardware CTS/RTS flow control
+#ifdef PIN_UART_RTS
   switch( config_get_serial_rtsmode() )
     {
     case 0:
@@ -150,7 +185,9 @@ void serial_uart_apply_settings()
       gpio_set_function(PIN_UART_RTS, GPIO_FUNC_UART);
       break;
     }
+#endif
 
+#ifdef PIN_UART_CTS
   switch( config_get_serial_ctsmode() )
     {
     case 0: 
@@ -163,6 +200,7 @@ void serial_uart_apply_settings()
       gpio_set_function(PIN_UART_CTS, GPIO_FUNC_UART);
       break;
     }
+#endif
 
   uart_set_hw_flow(PIN_UART_ID, config_get_serial_ctsmode(), config_get_serial_rtsmode());
 
@@ -183,7 +221,7 @@ void serial_uart_task(bool processInput)
   uint8_t b;
   
   // send serial output if we have some buffered
-  if( !queue_is_empty(&uart_tx_queue) && uart_is_writable(PIN_UART_ID) )
+  if( !queue_is_empty(&uart_tx_queue) && serial_uart_is_writable() )
     {
       if( queue_try_remove(&uart_tx_queue, &b) ) 
         {
@@ -197,7 +235,7 @@ void serial_uart_task(bool processInput)
     {
       // if xon/xoff is enabled then we maintain our own RX queue
       // so we can react faster to XON/XOFF requests.
-      if( uart_is_readable(PIN_UART_ID) )
+      if( serial_uart_is_readable() )
         {
           blink_led(config_get_serial_blink());
 
@@ -226,7 +264,7 @@ void serial_uart_task(bool processInput)
 
   // handle LED flashing
   if( offtime>0 && get_absolute_time() >= offtime )
-    { offtime = 0; gpio_put(PIN_LED, false); }
+    { offtime = 0; led_off(LED1); }
 
   // handle serial input
   if( processInput && serial_uart_receive_char(&b) )
@@ -254,11 +292,11 @@ void serial_uart_task(bool processInput)
 void serial_uart_init()
 {
   offtime = 0;
-  gpio_init(PIN_LED);
-  gpio_set_dir(PIN_LED, true); // output
   blink_led(1000);
 
   queue_init(&uart_tx_queue, 1, 512);
   queue_init(&uart_rx_queue, 1, 32);
   serial_uart_apply_settings();
 }
+
+#endif

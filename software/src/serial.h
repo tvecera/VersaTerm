@@ -22,6 +22,8 @@
 
 #include <stdbool.h>
 
+float serial_get_baudrate();
+void serial_set_baudrate(unsigned long baudrate);
 void serial_set_break(bool set);
 void serial_send_char(char c);
 void serial_send_string(const char *s);
@@ -33,5 +35,10 @@ void serial_xmodem_send_data(const char *data, int size);
 void serial_task(bool processInput);
 void serial_apply_settings();
 void serial_init();
+
+bool serial_is_readable();
+bool serial_is_writable();
+char serial_getc();
+void serial_putc(unsigned char c);
 
 #endif

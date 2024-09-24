@@ -14,9 +14,15 @@ add_executable(VersaTerm
         serial.c
         serial_uart.c
         serial_cdc.c
-        sound.c
+		sound.c
+		device.c
+		key.c
+		led.c
 	tmds_encode_font_2bpp.S
 	tmds_encode_font_2bpp.h
+
+	boards/extdisp/device.c
+	boards/extdisp/serial_uart_pio.c
 )
 
 target_compile_definitions(VersaTerm PRIVATE
@@ -29,8 +35,12 @@ target_include_directories(VersaTerm PUBLIC
 
 # We have a lot in SRAM4 (particularly TMDS LUT) but don't need much stack on
 # core 1. Probably even 256 bytes would be fine.
+#
+# Select board:
+# - 1 - original VersaTerm
+# - 2 - PicoPad external display module v1
 target_compile_definitions(VersaTerm PRIVATE
-	DVI_DEFAULT_SERIAL_CONFIG=${DVI_DEFAULT_SERIAL_CONFIG}
+	BOARD=1
 	PICO_CORE1_STACK_SIZE=0x200
 	)
 

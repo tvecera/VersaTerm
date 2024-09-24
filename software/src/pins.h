@@ -1,20 +1,112 @@
 #ifndef PINS_H
 #define PINS_H
 
-// vga output uses gpio pins 0,1,2,3,4,5,6,7,8
-// dvi output uses gpio pins 12,13,14,15,16,17,18,19
+#define VERSATERM 1
+#define EXTDISP   2
+#define PICOLCD   3
 
-#define PIN_BUZZER       9
-#define PIN_PS2_DATA    10
-#define PIN_PS2_CLOCK   11
-#define PIN_DEFAULTS    22
-#define PIN_LED         25
-#define PIN_HDMI_DETECT 28
+#if BOARD == VERSATERM
+#define BOARD_VERSATERM
+#include "boards/versaterm/board_def.h"
+#elif BOARD == EXTDISP
+#define BOARD_EXTDISP
+#include "boards/extdisp/board_def.h"
+#elif BOARD == PICOLCD
+#define BOARD_PICOLCD
+#include "boards/picolcd/board_def.h"
+#endif
 
-#define PIN_UART_ID   uart1
-#define PIN_UART_TX   20     // uart0: 0, 12, 16, 28  uart1: 4,  8, 20, 24
-#define PIN_UART_RX   21     // uart0: 1, 13, 17, 29  uart1: 5,  9, 21, 25
-#define PIN_UART_CTS  26     // uart0: 2, 14, 18      uart1: 6, 10, 22, 26
-#define PIN_UART_RTS  27     // uart0: 3, 15, 19      uart1: 7, 11  23, 27
+#ifndef USE_VGA
+#define USE_VGA 1
+#endif
+
+#ifndef USE_HDMI
+#define USE_HDMI 1
+#endif
+
+#if !USE_HDMI && !USE_VGA
+#error "Cannot disable both VGA and HDMI output"
+#endif
+
+#ifndef USE_DEVICE_INIT
+#define USE_DEVICE_INIT 0
+#endif
+
+// Default splash screen
+#ifndef SPLASH_CONTENT
+#define SPLASH_CONTENT \
+{ \
+		"\016lqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk\n", \
+		"x\017                     VersaTerm 1.0                     \016x", \
+		"x\017                 (C) 2022 David Hansel                 \016x", \
+		"x\017          https://github.com/dhansel/VersaTerm         \016x", \
+		"tqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqu", \
+		"x\017  DVI output  via https://github.com/Wren6991/PicoDVI  \016x", \
+		"x\017  VGA output  via https://github.com/Panda381/PicoVGA  \016x", \
+		"x\017  USB support via https://github.com/hathach/tinyusb   \016x", \
+		"mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj\017" \
+}
+#endif
+
+// Default BUZZER implementation
+#if !defined(USE_BUZZER) && defined(PIN_BUZZER)
+#define USE_BUZZER 1
+#endif
+
+// Use HDMI detect pin
+#if !defined(USE_HDMI_DETECT) && defined(PIN_HDMI_DETECT)
+#define USE_HDMI_DETECT 1
+#endif
+
+// Use PS/2 keyboard
+#if !defined(USE_PS2_KEYBOARD) && defined(PIN_PS2_DATA) && defined(PIN_PS2_CLOCK)
+#define USE_PS2_KEYBOARD 1
+#endif
+
+// Use UART
+#if !defined(USE_UART) && defined(PIN_UART_TX) && defined(PIN_UART_RX)
+#define USE_UART 1
+#endif
+
+
+// Default LED implementation
+#if !defined(USE_LED) && defined(PIN_LED)
+
+#define USE_LED 1
+
+// number of LEDs
+#ifndef LED_NUM
+#define LED_NUM 1
+#endif
+
+#ifndef LED_GPIO_TAB
+#define LED_GPIO_TAB { {PIN_LED, 0} }
+#endif
+
+#endif
+
+// Default key / button implementation
+#if !defined(USE_KEY) && defined(PIN_DEFAULTS)
+
+#define USE_KEY 1
+
+// number of buttons
+#ifndef KEY_NUM
+#define KEY_NUM 1
+#endif
+
+// buttons GPIOs
+#ifndef KEY_GPIO_TAB
+#define KEY_GPIO_TAB { PIN_DEFAULTS }
+#endif
+
+#endif
+
+#if USE_HDMI
+
+#include "common_dvi_pin_configs.h"
+#include "boards/custom_dvi_pin_configs.h"
+
+#endif
 
 #endif

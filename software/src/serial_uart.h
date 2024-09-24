@@ -20,6 +20,8 @@
 #ifndef SERIAL_UART
 #define SERIAL_UART
 
+float serial_uart_get_baudrate();
+void serial_uart_set_baudrate(unsigned long baudrate);
 void serial_uart_set_break(bool set);
 void serial_uart_send_char(char c);
 void serial_uart_send_string(const char *s);
@@ -29,5 +31,12 @@ int  serial_uart_can_send();
 void serial_uart_task(bool processInput);
 void serial_uart_apply_settings();
 void serial_uart_init();
+
+bool serial_uart_is_writable();
+bool serial_uart_is_readable();
+
+void serial_uart_write_blocking(const unsigned char *src, unsigned int len);
+char serial_uart_getc();
+void serial_uart_putc(unsigned char c);
 
 #endif

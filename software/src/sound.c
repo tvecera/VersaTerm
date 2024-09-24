@@ -17,6 +17,10 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 // -----------------------------------------------------------------------------
 
+#include "pins.h"
+
+#if USE_BUZZER
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "hardware/pwm.h"
@@ -24,7 +28,6 @@
 #include "hardware/irq.h"
 #include "hardware/sync.h"
 #include "pico/time.h"
-#include "pins.h"
 #include "config.h"
 
 #define TIMER_ALARM 0
@@ -121,3 +124,5 @@ void sound_init()
   irq_set_exclusive_handler(TIMER_IRQ, sound_irq_fn);
   irq_set_enabled(TIMER_IRQ, false);
 }
+
+#endif

@@ -23,7 +23,47 @@
 #include "serial_cdc.h"
 #include "config.h"
 #include "terminal.h"
+#include "tusb.h"
 
+bool serial_is_readable() {
+	return serial_cdc_readable() || serial_uart_is_readable();
+}
+
+bool serial_is_writable() {
+	return tud_cdc_write_available() || serial_uart_is_writable();
+}
+
+void serial_putc(unsigned char c) {
+	if( config_get_usb_cdcmode()!=3 || !serial_cdc_is_connected() )
+		serial_uart_putc(c);
+
+	if( config_get_usb_cdcmode()==1 ) serial_cdc_send_char(c);
+}
+
+char serial_getc() {
+	if( tud_cdc_connected() )
+	{
+		if( tud_cdc_available() ) { char c; tud_cdc_read(&c, 1); return c; }
+	}
+	else
+	{
+		if( serial_uart_is_readable() ) return serial_uart_getc();
+	}
+
+	return -1;
+}
+
+float serial_get_baudrate() {
+	float uart_baudrate = serial_uart_get_baudrate();
+	if (uart_baudrate > 0.0)
+		return uart_baudrate;
+	else
+		return serial_cdc_get_baudrate();
+}
+
+void serial_set_baudrate(unsigned long baudrate) {
+	serial_uart_set_baudrate(baudrate);
+}
 
 void serial_set_break(bool set)
 {
@@ -78,9 +118,6 @@ void serial_init()
 // --------------------------------------------------------------------------------------
 // for XModem data upload and download
 // --------------------------------------------------------------------------------------
-
-#include "tusb.h"
-#include "hardware/uart.h"
 #include "keyboard.h"
 
 
@@ -100,7 +137,7 @@ int __in_flash(".configfun")  serial_xmodem_receive_char(int msDelay)
         }
       else
         {
-          if( uart_is_readable(PIN_UART_ID) ) return uart_getc(PIN_UART_ID);
+          if( serial_uart_is_readable() ) return serial_uart_getc();
         }
     }
   
@@ -126,5 +163,5 @@ void __in_flash(".configfun")  serial_xmodem_send_data(const char *data, int siz
       tud_cdc_write_flush();
     }
   else
-    uart_write_blocking(PIN_UART_ID, (uint8_t *) data, size);
+    serial_uart_write_blocking((uint8_t *) data, size);
 }

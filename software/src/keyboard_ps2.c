@@ -17,6 +17,10 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 // -----------------------------------------------------------------------------
 
+#include "pins.h"
+
+#if USE_PS2_KEYBOARD
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -27,7 +31,6 @@
 #include "keyboard.h"
 #include "keyboard_ps2.h"
 #include "config.h"
-#include "pins.h"
 
 //#define DEBUG
 
@@ -415,3 +418,5 @@ void keyboard_ps2_init()
   else 
     keyboard_send_byte_wait_response(0xFF); // some keyboards need a RESET command to start responding properly
 }
+
+#endif

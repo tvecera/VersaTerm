@@ -24,6 +24,13 @@
 #include "serial_uart.h"
 #include "framebuf.h"
 
+float serial_cdc_get_baudrate()
+{
+	cdc_line_coding_t *coding = {};
+	tud_cdc_get_line_coding(coding);
+
+	return (float) coding->bit_rate;
+}
 
 static void terminal_disabled_message(bool show)
 {

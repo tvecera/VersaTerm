@@ -26,7 +26,6 @@
 #include "hardware/structs/bus_ctrl.h"
 #include "dvi.h"
 #include "dvi_serialiser.h"
-#include "common_dvi_pin_configs.h"
 #include "tmds_encode_font_2bpp.h"
 
 #include "pins.h"

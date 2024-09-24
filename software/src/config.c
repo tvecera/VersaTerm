@@ -37,6 +37,7 @@
 #include "hardware/watchdog.h"
 #include "hardware/clocks.h"
 #include "tusb.h"
+#include "key.h"
 
 #define CONFIG_MAGIC   0x0F1E2D3C
 #define CONFIG_VERSION 0
@@ -454,8 +455,14 @@ static const struct MenuItemStruct __in_flash(".configmenus") screenPetsciiColor
      {'p', "Color 15 (light grey)",      MI_PCOLOR15,        NULL, 0, color_fn}};
 
 
-static const struct MenuItemStruct __in_flash(".configmenus") screenMenu[] =
-    {{'1', "Display type",               0, NULL, 0, displaytype_fn, &settings.Screen.display,  0,   2, 1,  0, {"Auto-detect", "DVI/HDMI", "VGA"}},
+static const struct MenuItemStruct __in_flash(".configmenus") screenMenu[] = {
+#if defined(USE_VGA) && USE_VGA == 0
+		 {'1', "Display type",               0, NULL, 0, displaytype_fn, &settings.Screen.display,  0,   2, 1,  1, {"Auto-detect", "DVI/HDMI", "VGA"}},
+#elif defined(USE_HDMI) && USE_HDMI == 0
+		{'1', "Display type",               0, NULL, 0, displaytype_fn, &settings.Screen.display,  0,   2, 1,  2, {"Auto-detect", "DVI/HDMI", "VGA"}},
+#else
+		{'1', "Display type",               0, NULL, 0, displaytype_fn, &settings.Screen.display,  0,   2, 1,  0, {"Auto-detect", "DVI/HDMI", "VGA"}},
+#endif
      {'2', "Rows",                       0, NULL, 0, NULL, &settings.Screen.rows,    10,  60, 1, 30},
      {'3', "Columns",                    0, NULL, 0, NULL, &settings.Screen.cols,    20,  80, 2, 80},
      {'4', "Double size characters",     0, NULL, 0, NULL, &settings.Screen.dblchars, 0,   1, 1,  1, {"never", "if screen space allows"}},
@@ -463,7 +470,8 @@ static const struct MenuItemStruct __in_flash(".configmenus") screenMenu[] =
      {'6', "Blink period (frames)",      0, NULL, 0, NULL, &settings.Screen.blink,    2, 120, 2, 60},
      {'7', "Color/Monochrome",           0, NULL, 0, NULL, &settings.Screen.mono,     0,   1, 1,  0, {"Color", "Monochrome"}},
      {'8', "Ansi Colors",                0, screenAnsiColorMenu,    NUM_MENU_ITEMS(screenAnsiColorMenu)},
-     {'9', "PETSCII Colors",             0, screenPetsciiColorMenu, NUM_MENU_ITEMS(screenPetsciiColorMenu)}};
+     {'9', "PETSCII Colors",             0, screenPetsciiColorMenu, NUM_MENU_ITEMS(screenPetsciiColorMenu)}
+};
 
 
 static const struct MenuItemStruct __in_flash(".configmenus") userFontMenu[] =
@@ -485,8 +493,8 @@ static const struct MenuItemStruct __in_flash(".configmenus") fontMenu[] =
 
 
 static const struct MenuItemStruct __in_flash(".configmenus") usbMenu[] =
-    {{'1', "USB port mode",  0, NULL, 0, usbtype_fn, &settings.USB.mode,   0, 3, 1, 3, {"Disabled", "Device", "Host", "Auto-detect"}},
-     {'2', "USB CDC device mode", 0, NULL, 0, NULL, &settings.USB.cdcmode, 0, 3, 1, 2, {"Disabled", "Serial", "Pass-through", "Pass-through (terminal disabled)"}}};
+		{{'1', "USB port mode",  0, NULL, 0, usbtype_fn, &settings.USB.mode,   0, 3, 1, 3, {"Disabled", "Device", "Host", "Auto-detect"}},
+		 {'2', "USB CDC device mode", 0, NULL, 0, NULL, &settings.USB.cdcmode, 0, 3, 1, 2, {"Disabled", "Serial", "Pass-through", "Pass-through (terminal disabled)"}}};
 
 
 static const struct MenuItemStruct __in_flash(".configmenus") mainMenu[] =
@@ -1892,29 +1900,18 @@ static int INFLASHFUN attr_fn(const struct MenuItemStruct *item, int callType, i
 }
 
 
-static float INFLASHFUN get_actual_baud(uart_inst_t *uart)
-{
-  // Get PL011's baud divisor registers
-  uint32_t baud_ibrd = uart_get_hw(uart)->ibrd;
-  uint32_t baud_fbrd = uart_get_hw(uart)->fbrd;
-  
-  // See datasheet
-  return (4.0 * ((float) clock_get_hz(clk_peri))) / (float) (64 * baud_ibrd + baud_fbrd);
-}
-
-
 static void INFLASHFUN print_baud(uint32_t baud, bool selectmode)
 {
   if( selectmode && baud==0 )
     print("\033[7m Custom \033[27m");
   else
     {
-      uart_set_baudrate(PIN_UART_ID, baud);
+      serial_set_baudrate(baud);
       print("%s%lu%s", selectmode ? "\033[7m " : "", baud, selectmode ? " \033[27m" : "");
 
-      float fbaud   = baud;
-      float actual  = get_actual_baud(PIN_UART_ID);
-      float pctdiff = (100.0*fabs(actual-fbaud)) / fbaud;
+      float fbaud   = (float) baud;
+      float actual  = serial_get_baudrate();
+      float pctdiff = (float) (100.0 * fabs(actual-fbaud)) / fbaud;
       if( pctdiff >= 0.05 )
         print(" actual %.0f (%c%.1f%%)", actual, actual<fbaud ? '-' : '+', pctdiff);
     }
@@ -2249,16 +2246,7 @@ void INFLASHFUN handleMenu(const char *title, const struct MenuItemStruct *items
 
 void INFLASHFUN config_show_splash()
 {
-  static const char __in_flash(".configmenus") splash[9][80] =
-    {"\016lqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk\n",
-     "x\017                     VersaTerm 1.0                     \016x", 
-     "x\017                 (C) 2022 David Hansel                 \016x",
-     "x\017          https://github.com/dhansel/VersaTerm         \016x",
-     "tqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqu",
-     "x\017  DVI output  via https://github.com/Wren6991/PicoDVI  \016x", 
-     "x\017  VGA output  via https://github.com/Panda381/PicoVGA  \016x", 
-     "x\017  USB support via https://github.com/hathach/tinyusb   \016x", 
-     "mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj\017"};
+  static const char __in_flash(".configmenus") splash[9][80] = SPLASH_CONTENT;
 
   if( settings.Screen.splash!=0 )
     {
@@ -2282,11 +2270,6 @@ void INFLASHFUN config_show_splash()
 
 void config_init()
 {
-  gpio_init(PIN_DEFAULTS);
-  gpio_set_dir(PIN_DEFAULTS, false); // input
-  gpio_pull_up(PIN_DEFAULTS);
-  busy_wait_us_32(100); // wait a short time for voltage to stabilize before reading
-
   // set defaults for both VGA and DVI/HDMI mode
   memset(&config.data, 0, sizeof(config.data));
   defaults_force_dvi = 1;
@@ -2299,7 +2282,7 @@ void config_init()
     settings.Keyboard.user_mapping[i]=i;
 
   *((uint16_t *) &settings.keyboard_macros_start) = 0;
-  if( gpio_get(PIN_DEFAULTS) )
+  if( key_get() != KEY_DEFAULTS )
     {
       // PIN_DEFAULTS==true => attempt to load config (inverted logic)
       if( loadConfig(0) )
